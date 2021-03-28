@@ -1,0 +1,354 @@
+---
+title: "Factors Influencing the NO2 Concentration in Air"
+output:
+  word_document: default
+  html_document: default
+---
+
+
+
+```{r, echo=FALSE, include=FALSE}
+library(readr)
+nitrogen <- read_csv("https://marievozanne.github.io/NO2.csv")
+```
+
+
+```{r, message = FALSE, echo = FALSE, include=FALSE}
+library(dplyr) # functions like summarize
+library(ggplot2) # for making plots
+library(gridExtra)
+library(GGally)
+library(readr)
+library(car)
+library(leaps)
+options("pillar.sigfig" = 10) # print 10 significant digits in summarize output
+```
+
+
+```{r, epoch = FALSE, include=FALSE}
+head(nitrogen)
+```
+
+```{r, echo = FALSE, include=FALSE}
+dim(nitrogen)
+```
+
+
+## Summary
+
+This is an analytical study that seeks to explore the different factors that impact the log of nitrogen dioxide concentration in the air. Multiple regression model was used to examine the relationship between the log of no2 concentration and different explanatory variables. In addition to that, 'all subsets regression' was used to compare the performance of different models, after quantifying the performance using Baeysian Information Criterion (BIC) values. The reuslts of this study indicate that log of no2 concentration is positively correlated with the number of cars per hour on a particular road (p-value: < 2e-16), temperature difference between 2 and 5 metres above ground in degrees Celsius (p-value: 2.52e-07), wind direction measured in degrees between 0 and 360 (p-value: 0.0417) and, increment in day number from October 1, 2001 (p-value: 0.0179)
+Furthermore, the log of no2 concentration in air was also found to be negatively correlated with the air temperature 2 metres above ground in degrees Celsius (p-value: 1.23e-07) and, square root of wind speed measured in metres/second (p-value: < 2e-16)
+
+## Background 
+
+Nitrogen dioxide concentration in the environment is an important concern that needs to be investigated. This is because increased concentration of nitrogen dioxide in air has been associated with many different health problems. Several scientific studies have been conducted to explore the different factors that might contribute to a higher concentration of no2 in air. A study conducted by Donnelly and colleagues found a strong impact of wind direction and wind speed on the concentration of nitrogen dioxide in air(Donnelly et al.). Another study by Joanna in 2018 that looked at the concentration of no2 in air in a city in Polland, found the concentration of no2 in air to be strongly related with both traffic volume and wind speed (Kamińska). 
+
+The current analytical study seeks to explore the relationship between log of no2 concentration in air and other traffic volume and meterological factors. The purpose of this study is to find the different factors that might be able to explain the variability in the log of no2 concentration in air, in addtion to factors such as wind speed, traffic volume, etc. The data for this analytical study is taken from a Norwegian study on air pollution, which was conducted at Alnabru in Oslu, Norway from October 2001 to August 2003. The original dataset consists of 12 different variables and 500 observations. However, all the variables were not used for the purposes of the analyses in the current study. This is because some of the variables in the original dataset are categorical variants of other numerical variables. Therefore, the categorical variables that contained redundant information, which was better explained and expressed in more detail by their numerical counterparts, were excluded from the analyses. The response variable for this analysis is the logarithm of nitrogen dioxide particle concentration. Below is a list of the explanatory variables that were used in the analyses:
+
+ •	Logarithm of number of cars per hour at a particular road (lcph)
+ •	Air temperature 2 metres above ground in degrees Celsius (temp)
+ •	Wind speed in metres/second (wind_speed)
+ •	Temperature difference between 2 and 5 metres above ground in degrees Celsius (temp_diff)
+ •	Wind direction expressed in degrees between 0 and 360 (wind_dir)
+ •	Hour of the day at the time of observation (hour_day)
+ •	Day number from October 1, 2001 (day_number)
+
+Below is a list of the categorical variables that were excluded because they contained the same information as their numerical counterparts. Since these categorical variables did not contribute any additional information about the variability in log of no2 concentration in air(response variable), they were not used for the analyses in this study.
+ •	Categorical version of the ‘hour_day’ variable (AM_PM)
+ •	Categorical counterpart of ‘temp_diff’ variable (temp_diff_bin)
+ •	Categorical variant of the ‘wind_dir’ variable (wind_dir_bin)
+ •	Categorical for the ‘wind_speed’ variable (wind_speed_bin)
+
+## Methods:
+
+This study uses multiple regression model to look at the relationship between the log of no2 concentration (response variable) and other explanatory variables. Multiple regression model allows us to map the relationship among differnt varuables, involving multiple explanatory variables effectively. Multiple regression model involves the following conditions/assumptions that should be satisfied:
+
+(Refer to 'ggpairs plot before transformation' and 'ggpairs plot after transformation' in Appendix, )
+
+**Linearity:** This condition was not satisfied intially in the original data. Linearity seemed to be a significant issue specifically for 'lcph' and 'wind_speed' variables. This implies that some transformation of data to help satisfy the linearity condition should be considered. 
+
+**Outliers/Leverage Points:** As seen in the spread of data points in the ggpairs plot, there were some potential outliers/ high influence leaverage points which need further investigation. This detailed investifation is included later in the report.
+
+**Equal Variance:** In 'ggpairs plot before transformation', the density plot for 'lcph' was left skewed and the density plot for 'wind_speed' was right skewed. Therefore, equal variance condition was not satisfied for 'lcph' and 'wind_speed' variables. Equal variance for all the other variables looked fine.
+
+**Multicollinearity:** Since none of the correlation coefficients in the 'ggpairs plot'  were greater than 0.5, multicollinearity between the different candidate explanatory variables did not seem to be an issue. However, a double check on multicollinearity was also performed by calculating the VIF values.
+
+**Independence:** The observations in the dataset seem to be independent. However, there is not absolute certainity about the indepedndece of observations because there is no detailed information available on how exactly the observations were recorded.
+
+After determining the transformations needed in the original dataset, following transformations were performed:
+'lcph' was tranformed by using the exponential function and the tranformed variable was named 'exp_lcph'
+'wind_speed' was transformed by taking square root and the transformed variable was named 'sqrt_wind_speed'
+After transformation, the conditions of linearity and equal variance were better satisfied as seen in the ggpairs plot after tranformation of variables. The 'ggpairs plot' after tranformations of the two variables, 'lcph' and 'wind_speed' is attached below.
+
+```{r, echo=FALSE}
+
+nitrogen <- nitrogen %>% mutate(
+  sqrt_wind_speed = sqrt(wind_speed),
+  exp_lcph = exp(lcph))
+ggpairs(nitrogen %>% select(exp_lcph, temp, sqrt_wind_speed, temp_diff, wind_dir, hour_day, day_number, no2))
+```
+
+
+Various visualization tools such as 'ggapirs plot' were used to examine the different characteristics of the dataset. To check for the distribution of observations for each of the variables, the residual plots for each of the explanatory variables were also examined (Refer to appendix: residual plots). After transformation of 'lcph' and 'wind_speed' variables, their residual plots looked more centered at 0, which implies that the conditions of linerity and equal variance were better satisfied after transformation of these variables. The new transformed variables are named ‘exp_lcph’ and ‘sqrt_wind_speed’ respectively. 
+
+Additionally, some diagnostic checks were performed to look for potential outliers/ high leverage points. To do that, plots for 'studentised residuals' and 'cook's distance' were also constructed (Refer to 'diagnostic plots' in Appendix). Any data-points that were farther from the cluster of observations in the 'studentised resduals' and 'cook's distance' plots were noted as suspicious observations. These observations could be potential outliers or high influence points which could impact the results of our analyses. The plots for studentised residuals and cook's distance are included in the appendix. The observations that were far from the other cluster of data points are thus flagged as suspicious are 125, 156, 371, 372, 429, 240 and 320. Another verstion of the 'nitrogen' dataset was created after excluding the suspicious observations, to see if the relationship between the log of no2 concentration and other explanantory variables remained consistent after the potential high influence points were excluded from the analyses.
+
+Since multicollinearity negatively impacts the precision of our estimates, VIF (variance inflation factor) values for all the coefficient estimates were calculated. To do this, a model was fit with log of no2 concentration as the response variable and all the other variables (transformed) as explantory variables. No interaction terms were included in this model. Below is a summary of all the VIFs for all the explanatory variables.
+
+```{r, echo=FALSE}
+fit_2 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + wind_dir + hour_day + day_number, data = nitrogen)
+vif(fit_2)
+```
+
+Since The VIF values for all the variables in the model were quite small (less than 2), there were no potential issues with multicollinearity among the candidate explanatory variables.
+
+Furthermore, all subsets regression was used to look at different candidate models and to select models that had the best performance. The performance of different models was quantified by calculating the BIC (Baeysian Information Criterion) values. A smaller BIC value corresponds to better performance of a model as compared to a larger BIC value. Similar BIC values for multiple models indicates similar performance across those models. This method allows the selection of a model that best represents the relationship between the different variables in the dataset, without overfitting. This was done twice, once without the excluding any observations and later after the exclusion of all the suspicious observations that were considered potential outliers/ high influence points.
+
+## Results: 
+
+Below is a summary of what is included in the top three models before exclusion of any suspicious observations. The BIC values and the explanantory variables included (in adtion to the 'no2' as response variable) in the these models are also listed. This summary result is from all subsets regression **before excluding any observations**. More detailed results are included in the appendix.
+
+Models 4, 5 and 6 had roughly equal performance.
+
+Model 4: explanatory variables included were -> exp_lcph, temp, sqrt_wind_speed, temp_diff (BIC = -300.70)
+Model 5: explanatory variables included were -> exp_lcph, temp, sqrt_wind_speed, temp_diff, day_number (BIC = -299.01)
+Model 6: explanatory variables included were -> exp_lcph, temp, sqrt_wind_speed, temp_diff, wind_dir, day_number (BIC = -297.01)
+
+Below is a summary of what is included in the top three models after exclusion of all the suspicious observations. The BIC values and the explanantory variables included (in adtion to the 'no2' as response variable) in the these models are also listed. This summary result is from all subsets regression **after excluding any observations**. More detailed results are included in the appendix.
+
+Models 4, 5 and 6 have roughly equal performance.
+
+Model 4: exp_lcph, temp, sqrt_wind_speed, temp_diff (BIC = -305.04)
+Model 5: exp_lcph, temp, sqrt_wind_speed, temp_diff, day_number (BIC = -304.73)
+Model 6: exp_lcph, temp, sqrt_wind_speed, temp_diff, wind_dir, day_number (BIC = -302.80)
+
+The summaries from the top three models from each of the analyses, before and after the exclusion of suspicious observations are included in detail in the appendix. The results from the summaries of these models are as follows:
+There is a consistent and strong evidence that:
+
+As the number of cars per hour at a particular road increase, the log of concentration of nitrogen dioxide (particle) also increases. The log of concentration of nitrogen dioxide (particle) is 4.036e-04 times higher with a one unit increase in the number of cars per hour as a particular road (p-value: <2e-16), assuming that all the other variables are kept constant.
+
+As the air temperature 2 metres above ground (degrees Celsius) increase, the log of concentration of nitrogen dioxide (particle) decreases. The log of concentration of nitrogen dioxide is 2.352e-02 times lower with a one unit increase in the air temperature 2 metres above ground (degrees Celsius) (p-value: 1.23e-07), assuming that all the other variables are kept constant.
+
+As the square root of wind speed (metres/second) increase, the log of concentration of nitrogen dioxide (particle) decreases. The log of concentration of nitrogen dioxide (particle) is 4.715e-01 times lower with a one unit increase in the square root of wind speed (metres/second) (p-value: <2e-16), assuming that all the other variables are  kept constant.
+
+As the temperature difference between 2 and 5 metres above ground (degrees Celsius) increase, the log of concentration of nitrogen dioxide (particle) also increases. The log of concentration of nitrogen dioxide (particle) is 1.368e-01 times higher with a one unit 
+
+There is moderate evidence that:
+
+As the wind direction increases (degrees between 0 and 360), the log of concentration of nitrogen dioxide (particle) also increases.
+The log of concentration of nitrogen dioxide (particle) is 2.352e-02 times higher with a one unit increase in the wind direction (degrees between 0 and 360) (p-value: 0.0417), assuming that all the other variables are kept constant.
+  
+As the day number from October 1, 2001 increase, the log of concentration of nitogen dioxide (particle) also increases.
+The log of concentration of nitrogen dioxide (particle) is 2.990e-04  times higher with a one unit increase in the day number from October 1, 2001 (p-value: 0.0179), assuming that all the other variables are kept constant.
+
+## Discussion
+
+The results of this current study were consistent with the findings from the previous research studies. The findings of this analytical study were similar to what was found in the research study done by Donelly and colleagues. Both these studies established some sort of relationship between log no2 concentration in air with both wind speed and wind direction. However, in the present study, sqruare root of wind speed was more strongly correlated with the log of no2 concentration in air, than wind direction. While square root of wind speed was negatively correlated with log of no2 concentration, wind direction had a positive correlation. The findings of this study were also consistent with the findings of Joanne's research study that found no2 concentration to be related with both wind speed and traffic volume. Similarly, in this study, we found a positive correlation between log of no2 concentration and number of cars at a prticular road per hour. In addition to these factors, this study also found log of no2 concentration to be related with some temperature dependent factors such as air temperature 2 metres above ground (negative correlation) and temperature difference between 2 and 5 metres above ground (positive correlation). Furthermore, as the number of days from October 1, 2001 increased, the log of no2 concentration in air also increased, indicating an no2 concentration increase in air with time. The association of these different factors with log of no2 concentration provides a useful insight into the different influence factors of no2 concentration in air. Information about the different factors that impact no2 concentration would be useful in exploring these factors individually in detail. This could further help in lowering the level of no2 concentration in air.
+
+The findings from this study suggest that most of the variability in log of no2 concentration is explanied by the square root of wind speed, temperature 2 metres above ground, temperature difference between 2 and 5 metres above ground, and the number of cars per hour at a particular road. The results about the correlations between the log of no2 concentration in air and different factors discussed above did not change when the suspicious observations (outliers/high influence points) were excluded from the analyses. This indicates that the findings of these analyses are consistent and do not depend on the details of the analyses. 
+Based on these findings, useful future experiments could involve studying each of the factors that have been shown to be correlated with log no2 concentration, more closely. This would also allow us to exlore if manipulations in each of those factors could help in decreasing the overall no2 concentration in air.
+
+
+## References
+
+Donnelly, Aoife, et al. “Application of Nonparametric Regression Methods to Study the Relationship between NO2 Concentrations and Local Wind Direction and Speed at Background Sites.” Science of The Total Environment, vol. 409, no. 6, 2011, pp. 1134–1144., doi:10.1016/j.scitotenv.2010.12.001.
+
+Kamińska, Joanna. “Probabilistic Forecasting of Nitrogen Dioxide Concentrations at an Urban Road Intersection.” Sustainability, vol. 10, no. 11, 2018, p. 4213., doi:10.3390/su10114213.
+
+Data source: http://lib.stat.cmu.edu/datasets/
+
+## Appendix
+
+**ggpairs plot before any transformation of variables**
+ 
+Below I am including ggpairs plots, with 'no2' as the response variable and all the variables (being considered) as explanatory variables.
+
+```{r, echo=FALSE}
+ggpairs(nitrogen %>% select(lcph, temp, wind_speed, temp_diff, wind_dir, hour_day, day_number, no2))
+```
+
+**ggpairs plot after transformation of variables**
+
+Below is a ggpairs plot after the following transformations in the variables are made:
+'lcph' tranformed by using exponential function and named 'exp_lcph'
+'wind_speed' transformed after taking the square root and named 'sqrt_wind_speed'
+
+```{r, echo=FALSE}
+nitrogen <- nitrogen %>% mutate(
+  sqrt_wind_speed = sqrt(wind_speed),
+  exp_lcph = exp(lcph))
+ggpairs(nitrogen %>% select(exp_lcph, temp, sqrt_wind_speed, temp_diff, wind_dir, hour_day, day_number, no2))
+```
+
+**Residual plots**
+
+Below is a model with no2 as the response variable and all the other variables as explanatory variables (after tranformation). 
+
+```{r, echo=FALSE}
+lm_fit <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + wind_dir + hour_day + day_number, data = nitrogen)
+summary (lm_fit)
+nitrogen <- nitrogen %>%
+  mutate(
+    residual = residuals(lm_fit)
+  )
+p1 <- ggplot(data = nitrogen, mapping = aes(x= exp_lcph, y = residual)) + geom_point()
+
+p2 <- ggplot(data = nitrogen, mapping = aes(x= temp, y = residual)) + geom_point()
+
+p3 <- ggplot(data = nitrogen, mapping = aes(x= sqrt_wind_speed, y = residual)) + geom_point()
+
+p4 <- ggplot(data = nitrogen, mapping = aes(x= temp_diff, y = residual)) + geom_point()
+
+p5 <- ggplot(data = nitrogen, mapping = aes(x= wind_dir, y = residual)) + geom_point()
+
+p6 <- ggplot(data = nitrogen, mapping = aes(x= hour_day, y = residual)) + geom_point()
+
+p7 <- ggplot(data = nitrogen, mapping = aes(x= day_number, y = residual)) + geom_point()
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7)
+```
+
+The residual plots for all the explanatory variables above look roughly centered at 0. However, there might be some potential outliers as some of the data-points in the residual plots above are far from the center cluster of observations.
+
+
+**Diagnostic plots for identifying potential outliers and high levearge points** 
+
+Diagnostic plots such as plots for 'studentised residuals' and 'cook's distance' are included below:
+
+```{r, echo=FALSE}
+nitrogen <- nitrogen %>%
+  mutate(
+    obs_index = row_number(),
+    h1 = hatvalues(lm_fit),
+    studres1 = rstudent(lm_fit),
+    D1 = cooks.distance(lm_fit)
+  )
+2 * 8 / nrow(nitrogen)
+```
+
+```{r, echo=FALSE}
+ggplot(data = nitrogen, mapping = aes(x= obs_index, y = h1)) +
+  geom_point() +
+  geom_hline(yintercept = 2 * 8 / nrow(nitrogen)) +
+  ggtitle("Outliers and High Leverage Observations")
+```
+
+```{r, echo=FALSE}
+ggplot(data = nitrogen, mapping = aes(x= obs_index, y = studres1)) +
+  geom_point() +
+  ggtitle("Studentized Residuals")
+```
+
+```{r, echo=FALSE}
+ggplot(data = nitrogen, mapping = aes(x = obs_index, y= D1)) +
+  geom_point() +
+  ggtitle("Cook's Distance")
+```
+
+**Model Summary after excluding suspicious observations**
+
+```{r, echo=FALSE}
+obs_to_investigate <- c(125, 156, 371, 372, 429, 240, 320)
+nitrogen[- obs_to_investigate, ]
+```
+
+```{r, echo=FALSE}
+nitrogen <- nitrogen %>%
+  mutate(
+    suspicious = ifelse(row_number() %in% obs_to_investigate, "Suspicious", "seems ok")
+  )
+
+nitrogen_minus_suspicious <- nitrogen[-obs_to_investigate, ]
+lm_fit_without_suspicious <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + wind_dir + hour_day + day_number, data = nitrogen_minus_suspicious) 
+summary(lm_fit_without_suspicious)
+```
+
+
+**All subsets regression without excluding any high influence/outliers observation**
+
+Below are the results from all subsets regression. These results will help me decide which models have roughly similar performance, and then pick a model that best represents the data. 
+
+```{r, echo=FALSE}
+candidate_models_1 <- regsubsets(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + wind_dir + hour_day + day_number, data = nitrogen)
+plot(candidate_models_1)
+```
+
+
+
+```{r, echo=FALSE}
+summary(candidate_models_1)
+```
+```{r,echo=FALSE}
+summary(candidate_models_1)$bic
+```
+
+
+Below are the summaries of the top 3 models (corresponding to the lowest BIC values) selected from the candidate models above
+
+```{r, echo=FALSE}
+model_fit1 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff, data = nitrogen)
+summary(model_fit1)
+```
+
+```{r, echo=FALSE}
+model_fit2 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + day_number, data = nitrogen)
+summary(model_fit2)
+```
+
+```{r, echo=FALSE}
+model_fit3 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + wind_dir + day_number, data = nitrogen)
+summary(model_fit3)
+```
+
+
+**All subsets regression after excluding the outliers and high influence points**
+
+Below are the results for all subsets regression after excluding the potential outliers / suspicious values. 
+
+```{r, echo=FALSE}
+candidate_models_2 <- regsubsets(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + wind_dir + hour_day + day_number, data = nitrogen_minus_suspicious)
+plot(candidate_models_2)
+```
+
+
+```{r, echo=FALSE}
+summary(candidate_models_2)
+```
+
+```{r, echo=FALSE}
+summary(candidate_models_2)$bic
+```
+
+Below are the summaries of the top 3 models (corresponding to the lowest BIC values), from the candidate models above, after the exclusion of suspicious observations
+
+```{r, echo=FALSE}
+model_fit4 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff, data = nitrogen)
+summary(model_fit4)
+```
+
+```{r, echo=FALSE}
+model_fit5 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + day_number, data = nitrogen)
+summary(model_fit5)
+```
+
+```{r, echo=FALSE}
+model_fit6 <- lm(no2 ~ exp_lcph + temp + sqrt_wind_speed + temp_diff + day_number + wind_dir, data = nitrogen)
+summary(model_fit6)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
